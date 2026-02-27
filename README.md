@@ -135,6 +135,3 @@ Como este projeto está sendo evoluído para TCC, mudanças devem priorizar:
 Licença definida no projeto: **0BSD**.
 ```
 
----
-
-Assim o GitHub irá interpretar corretamente como Markdown, exibindo títulos, listas, blocos de código e formatação. Coloque sempre uma linha em branco entre tópicos para evitar que o markdown "junte" tudo em um bloco só.
