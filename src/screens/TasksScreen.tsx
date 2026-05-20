@@ -1,14 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  FlatList,
-  Alert,
-  TextInput,
-} from 'react-native';
-import { ChevronLeft, Plus, Search, ListFilter } from 'lucide-react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, Alert, TextInput } from 'react-native';
+import { ChevronLeft, Plus, Search } from 'lucide-react-native';
 import HabitCard from '../components/HabitCard';
 import Dialog from 'react-native-dialog';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -22,6 +14,13 @@ type Habit = {
 };
 
 type FilterType = 'all' | 'pending' | 'done' | 'favorite';
+
+const FILTERS: Array<{ key: FilterType; label: string }> = [
+  { key: 'all', label: 'Todas' },
+  { key: 'pending', label: 'Pendentes' },
+  { key: 'done', label: 'Feitas' },
+  { key: 'favorite', label: 'Favoritas' },
+];
 
 export default function TasksScreen({ navigation }: { navigation: any }) {
   const [habits, setHabits] = useState<Habit[]>([]);
@@ -90,10 +89,7 @@ export default function TasksScreen({ navigation }: { navigation: any }) {
   const addHabit = () => {
     if (!newHabit.trim()) return;
 
-    setHabits(prev => [
-      { id: Date.now(), title: newHabit.trim(), done: false, isFavorite: false },
-      ...prev,
-    ]);
+    setHabits(prev => [{ id: Date.now(), title: newHabit.trim(), done: false, isFavorite: false }, ...prev]);
     setNewHabit('');
     setDialogVisible(false);
   };
@@ -101,44 +97,41 @@ export default function TasksScreen({ navigation }: { navigation: any }) {
   return (
     <PixelBackground>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <ChevronLeft size={28} color="#FFF" />
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconBtn}>
+          <ChevronLeft size={20} color="#FFF" />
         </TouchableOpacity>
-        <Text style={styles.title}>Tarefas</Text>
-        <TouchableOpacity onPress={() => setDialogVisible(true)}>
-          <Plus size={24} color="#FFF" />
+        <Text style={styles.title}>Daily Tasks</Text>
+        <TouchableOpacity onPress={() => setDialogVisible(true)} style={styles.iconBtn}>
+          <Plus size={20} color="#FFF" />
         </TouchableOpacity>
       </View>
 
-      <View style={styles.statsCard}>
+      <View style={styles.panel}>
         <Text style={styles.statsMain}>{completedCount}/{habits.length} concluídas</Text>
-        <Text style={styles.statsSub}>Mantenha o ritmo hoje 🚀</Text>
-      </View>
+        <Text style={styles.statsSub}>Você está construindo consistência.</Text>
 
-      <View style={styles.searchBox}>
-        <Search size={18} color="rgba(255,255,255,0.7)" />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Buscar tarefa..."
-          placeholderTextColor="rgba(255,255,255,0.65)"
-          value={search}
-          onChangeText={setSearch}
-        />
-      </View>
+        <View style={styles.searchBox}>
+          <Search size={16} color="rgba(228,234,255,0.7)" />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Buscar tarefa..."
+            placeholderTextColor="rgba(220,228,255,0.58)"
+            value={search}
+            onChangeText={setSearch}
+          />
+        </View>
 
-      <View style={styles.filtersRow}>
-        {(['all', 'pending', 'done', 'favorite'] as FilterType[]).map(item => (
-          <TouchableOpacity
-            key={item}
-            style={[styles.filterChip, filter === item && styles.filterChipActive]}
-            onPress={() => setFilter(item)}
-          >
-            <ListFilter size={14} color="#fff" />
-            <Text style={styles.filterText}>
-              {item === 'all' ? 'Todas' : item === 'pending' ? 'Pendentes' : item === 'done' ? 'Concluídas' : 'Favoritas'}
-            </Text>
-          </TouchableOpacity>
-        ))}
+        <View style={styles.filtersRow}>
+          {FILTERS.map(item => (
+            <TouchableOpacity
+              key={item.key}
+              style={[styles.filterChip, filter === item.key && styles.filterChipActive]}
+              onPress={() => setFilter(item.key)}
+            >
+              <Text style={[styles.filterText, filter === item.key && styles.filterTextActive]}>{item.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
       </View>
 
       <FlatList
@@ -168,7 +161,7 @@ export default function TasksScreen({ navigation }: { navigation: any }) {
           style={styles.dialogInput}
         />
         <Dialog.Button label="Cancelar" onPress={() => setDialogVisible(false)} color="#FF5252" />
-        <Dialog.Button label="Adicionar" onPress={addHabit} color="#4CAF50" />
+        <Dialog.Button label="Adicionar" onPress={addHabit} color="#6D79FF" />
       </Dialog.Container>
     </PixelBackground>
   );
@@ -180,43 +173,50 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 50,
+    paddingTop: 24,
     paddingBottom: 14,
   },
-  title: { color: '#FFF', fontSize: 22, fontWeight: 'bold' },
-  statsCard: {
+  iconBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  title: { color: '#F5F7FF', fontSize: 18, fontWeight: '600', letterSpacing: 0.8 },
+  panel: {
     marginHorizontal: 16,
-    backgroundColor: 'rgba(0,0,0,0.28)',
+    backgroundColor: 'rgba(8,12,28,0.68)',
+    borderRadius: 20,
     padding: 14,
-    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(194,210,255,0.14)',
     marginBottom: 12,
   },
-  statsMain: { color: '#FFF', fontSize: 18, fontWeight: '700' },
-  statsSub: { color: 'rgba(255,255,255,0.75)', marginTop: 4 },
+  statsMain: { color: '#EFF3FF', fontSize: 17, fontWeight: '700' },
+  statsSub: { color: 'rgba(224,231,255,0.72)', marginTop: 4, marginBottom: 10 },
   searchBox: {
-    marginHorizontal: 16,
-    backgroundColor: 'rgba(255,255,255,0.14)',
-    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 14,
     paddingHorizontal: 12,
     flexDirection: 'row',
     alignItems: 'center',
   },
   searchInput: { color: '#fff', flex: 1, paddingHorizontal: 8, paddingVertical: 10 },
-  filtersRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, margin: 16, marginTop: 10 },
+  filtersRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
   filterChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 999,
   },
-  filterChipActive: { backgroundColor: 'rgba(76,175,80,0.5)' },
-  filterText: { color: '#fff', fontSize: 12, fontWeight: '600' },
+  filterChipActive: { backgroundColor: 'rgba(104,117,255,0.45)' },
+  filterText: { color: 'rgba(225,232,255,0.75)', fontSize: 12, fontWeight: '600' },
+  filterTextActive: { color: '#fff' },
   listContent: { paddingHorizontal: 16, paddingBottom: 20 },
   emptyText: { color: 'rgba(255,255,255,0.6)', textAlign: 'center', marginTop: 30, fontSize: 16 },
-  dialogContainer: { backgroundColor: '#252525' },
+  dialogContainer: { backgroundColor: '#1A1E2C' },
   dialogTitle: { color: '#FFF' },
   dialogInput: { color: '#FFF', borderBottomColor: '#444', borderBottomWidth: 1 },
 });
