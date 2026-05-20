@@ -1,14 +1,20 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
+type Phase = 'focus' | 'shortBreak' | 'longBreak';
 
 type PomodoroContextType = {
   secondsLeft: number;
   isRunning: boolean;
-  currentPhase: 'focus' | 'shortBreak' | 'longBreak';
+  currentPhase: Phase;
+  cycleCount: number;
+  focusTime: number;
+  shortBreak: number;
+  longBreak: number;
   start: () => void;
   pause: () => void;
   reset: () => void;
+  nextPhase: () => void;
   setCustomTimes: (focus: number, shortBreak: number, longBreak: number) => void;
 };
 
@@ -21,8 +27,7 @@ export function usePomodoro() {
 export function PomodoroProvider({ children }: { children: React.ReactNode }) {
   const [secondsLeft, setSecondsLeft] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
-  const [intervalId, setIntervalId] = useState<NodeJS.Timeout | null>(null);
-  const [currentPhase, setCurrentPhase] = useState<'focus' | 'shortBreak' | 'longBreak'>('focus');
+  const [currentPhase, setCurrentPhase] = useState<Phase>('focus');
   const [cycleCount, setCycleCount] = useState(0);
 
   const [focusTime, setFocusTime] = useState(25 * 60);
@@ -35,9 +40,9 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
       const short = await AsyncStorage.getItem('shortBreak');
       const long = await AsyncStorage.getItem('longBreak');
 
-      const f = focus ? parseInt(focus) : 25 * 60;
-      const s = short ? parseInt(short) : 5 * 60;
-      const l = long ? parseInt(long) : 15 * 60;
+      const f = focus ? parseInt(focus, 10) : 25 * 60;
+      const s = short ? parseInt(short, 10) : 5 * 60;
+      const l = long ? parseInt(long, 10) : 15 * 60;
 
       setFocusTime(f);
       setShortBreak(s);
@@ -48,34 +53,11 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
     loadTimes();
   }, []);
 
-  useEffect(() => {
-    if (isRunning) {
-      const id = setInterval(() => {
-        setSecondsLeft(prev => {
-          if (prev <= 1) {
-            clearInterval(id);
-            handlePhaseSwitch();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-      setIntervalId(id);
-      return () => clearInterval(id);
-    } else if (intervalId) {
-      clearInterval(intervalId);
-    }
-  }, [isRunning]);
-
-  const handlePhaseSwitch = () => {
-    setIsRunning(false);
-    setTimeout(() => {
-      setIsRunning(true);
-    }, 1000);
-
+  const switchToNextPhase = () => {
     if (currentPhase === 'focus') {
       const newCycle = cycleCount + 1;
       setCycleCount(newCycle);
+
       if (newCycle % 4 === 0) {
         setCurrentPhase('longBreak');
         setSecondsLeft(longBreak);
@@ -89,13 +71,35 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  useEffect(() => {
+    if (!isRunning) return;
+
+    const id = setInterval(() => {
+      setSecondsLeft(prev => {
+        if (prev <= 1) {
+          switchToNextPhase();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(id);
+  }, [isRunning, currentPhase, cycleCount, focusTime, shortBreak, longBreak]);
+
   const start = () => setIsRunning(true);
   const pause = () => setIsRunning(false);
+
   const reset = () => {
+    setIsRunning(false);
     setCycleCount(0);
     setCurrentPhase('focus');
     setSecondsLeft(focusTime);
+  };
+
+  const nextPhase = () => {
     setIsRunning(false);
+    switchToNextPhase();
   };
 
   const setCustomTimes = async (focus: number, short: number, long: number) => {
@@ -105,13 +109,28 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
     setFocusTime(focus);
     setShortBreak(short);
     setLongBreak(long);
+    setIsRunning(false);
     setCurrentPhase('focus');
+    setCycleCount(0);
     setSecondsLeft(focus);
   };
 
   return (
     <PomodoroContext.Provider
-      value={{ secondsLeft, isRunning, start, pause, reset, setCustomTimes, currentPhase }}
+      value={{
+        secondsLeft,
+        isRunning,
+        currentPhase,
+        cycleCount,
+        focusTime,
+        shortBreak,
+        longBreak,
+        start,
+        pause,
+        reset,
+        nextPhase,
+        setCustomTimes,
+      }}
     >
       {children}
     </PomodoroContext.Provider>
