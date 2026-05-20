@@ -52,15 +52,17 @@ export default function HabitCard({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(8, 12, 28, 0.62)',
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(194,210,255,0.14)',
   },
   title: {
-    color: '#FFFFFF',
+    color: '#EEF2FF',
     fontSize: 16,
     flex: 1,
     zIndex: 2,

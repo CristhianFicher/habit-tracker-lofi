@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, Alert } from 'react-native';
-import { ChevronLeft, Plus } from 'lucide-react-native';
+import React, { useState, useEffect, useMemo } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, Alert, TextInput } from 'react-native';
+import { ChevronLeft, Plus, Search } from 'lucide-react-native';
 import HabitCard from '../components/HabitCard';
 import Dialog from 'react-native-dialog';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import PixelBackground from '../components/PixelBackground';
-import PomodoroBadge from '../components/PomodoroBadge';
 
 type Habit = {
   id: number;
@@ -14,10 +13,21 @@ type Habit = {
   isFavorite: boolean;
 };
 
+type FilterType = 'all' | 'pending' | 'done' | 'favorite';
+
+const FILTERS: Array<{ key: FilterType; label: string }> = [
+  { key: 'all', label: 'Todas' },
+  { key: 'pending', label: 'Pendentes' },
+  { key: 'done', label: 'Feitas' },
+  { key: 'favorite', label: 'Favoritas' },
+];
+
 export default function TasksScreen({ navigation }: { navigation: any }) {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [dialogVisible, setDialogVisible] = useState(false);
   const [newHabit, setNewHabit] = useState('');
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<FilterType>('all');
 
   useEffect(() => {
     const loadHabits = async () => {
@@ -42,56 +52,90 @@ export default function TasksScreen({ navigation }: { navigation: any }) {
     saveHabits();
   }, [habits]);
 
+  const filteredHabits = useMemo(() => {
+    const normalizedSearch = search.trim().toLowerCase();
+
+    return habits
+      .filter(habit => {
+        if (filter === 'pending') return !habit.done;
+        if (filter === 'done') return habit.done;
+        if (filter === 'favorite') return habit.isFavorite;
+        return true;
+      })
+      .filter(habit => habit.title.toLowerCase().includes(normalizedSearch));
+  }, [habits, search, filter]);
+
+  const completedCount = habits.filter(h => h.done).length;
+
   const toggleHabit = (id: number) => {
-    setHabits(prev => prev.map(h => h.id === id ? { ...h, done: !h.done } : h));
+    setHabits(prev => prev.map(h => (h.id === id ? { ...h, done: !h.done } : h)));
   };
 
   const toggleFavorite = (id: number) => {
-    setHabits(prev => prev.map(h => h.id === id ? { ...h, isFavorite: !h.isFavorite } : h));
+    setHabits(prev => prev.map(h => (h.id === id ? { ...h, isFavorite: !h.isFavorite } : h)));
   };
 
   const deleteHabit = (id: number) => {
-    Alert.alert(
-      'Excluir tarefa',
-      'Tem certeza?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { 
-          text: 'Excluir', 
-          style: 'destructive',
-          onPress: () => setHabits(prev => prev.filter(h => h.id !== id))
-        }
-      ]
-    );
+    Alert.alert('Excluir tarefa', 'Tem certeza?', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Excluir',
+        style: 'destructive',
+        onPress: () => setHabits(prev => prev.filter(h => h.id !== id)),
+      },
+    ]);
   };
 
   const addHabit = () => {
-    if (newHabit.trim()) {
-      setHabits(prev => [...prev, {
-        id: Date.now(),
-        title: newHabit,
-        done: false,
-        isFavorite: false
-      }]);
-      setNewHabit('');
-      setDialogVisible(false);
-    }
+    if (!newHabit.trim()) return;
+
+    setHabits(prev => [{ id: Date.now(), title: newHabit.trim(), done: false, isFavorite: false }, ...prev]);
+    setNewHabit('');
+    setDialogVisible(false);
   };
 
   return (
     <PixelBackground>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <ChevronLeft size={28} color="#FFF" />
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconBtn}>
+          <ChevronLeft size={20} color="#FFF" />
         </TouchableOpacity>
-        <Text style={styles.title}>Lista de Tarefas</Text>
-        <TouchableOpacity onPress={() => setDialogVisible(true)}>
-          <Plus size={24} color="#FFF" />
+        <Text style={styles.title}>Daily Tasks</Text>
+        <TouchableOpacity onPress={() => setDialogVisible(true)} style={styles.iconBtn}>
+          <Plus size={20} color="#FFF" />
         </TouchableOpacity>
       </View>
 
+      <View style={styles.panel}>
+        <Text style={styles.statsMain}>{completedCount}/{habits.length} concluídas</Text>
+        <Text style={styles.statsSub}>Você está construindo consistência.</Text>
+
+        <View style={styles.searchBox}>
+          <Search size={16} color="rgba(228,234,255,0.7)" />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Buscar tarefa..."
+            placeholderTextColor="rgba(220,228,255,0.58)"
+            value={search}
+            onChangeText={setSearch}
+          />
+        </View>
+
+        <View style={styles.filtersRow}>
+          {FILTERS.map(item => (
+            <TouchableOpacity
+              key={item.key}
+              style={[styles.filterChip, filter === item.key && styles.filterChipActive]}
+              onPress={() => setFilter(item.key)}
+            >
+              <Text style={[styles.filterText, filter === item.key && styles.filterTextActive]}>{item.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+
       <FlatList
-        data={habits}
+        data={filteredHabits}
         keyExtractor={item => item.id.toString()}
         renderItem={({ item }) => (
           <HabitCard
@@ -104,33 +148,20 @@ export default function TasksScreen({ navigation }: { navigation: any }) {
           />
         )}
         contentContainerStyle={styles.listContent}
-        ListEmptyComponent={
-          <Text style={styles.emptyText}>Nenhuma tarefa cadastrada</Text>
-        }
+        ListEmptyComponent={<Text style={styles.emptyText}>Nenhuma tarefa para esse filtro.</Text>}
       />
 
-      <Dialog.Container 
-        visible={dialogVisible}
-        contentStyle={styles.dialogContainer}
-      >
-        <Dialog.Title style={styles.dialogTitle}>Novo Hábito</Dialog.Title>
+      <Dialog.Container visible={dialogVisible} contentStyle={styles.dialogContainer}>
+        <Dialog.Title style={styles.dialogTitle}>Nova tarefa</Dialog.Title>
         <Dialog.Input
-          placeholder="Ex: Meditar"
+          placeholder="Ex: Meditar 10 minutos"
           placeholderTextColor="#999"
           onChangeText={setNewHabit}
           value={newHabit}
           style={styles.dialogInput}
         />
-        <Dialog.Button 
-          label="Cancelar" 
-          onPress={() => setDialogVisible(false)} 
-          color="#FF5252"
-        />
-        <Dialog.Button 
-          label="Adicionar" 
-          onPress={addHabit} 
-          color="#4CAF50"
-        />
+        <Dialog.Button label="Cancelar" onPress={() => setDialogVisible(false)} color="#FF5252" />
+        <Dialog.Button label="Adicionar" onPress={addHabit} color="#6D79FF" />
       </Dialog.Container>
     </PixelBackground>
   );
@@ -141,38 +172,51 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
-    paddingTop: 50,
+    paddingHorizontal: 20,
+    paddingTop: 24,
+    paddingBottom: 14,
   },
-  title: {
-    color: '#FFF',
-    fontSize: 20,
-    fontWeight: 'bold',
+  iconBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
-  listContent: {
-    padding: 16,
+  title: { color: '#F5F7FF', fontSize: 18, fontWeight: '600', letterSpacing: 0.8 },
+  panel: {
+    marginHorizontal: 16,
+    backgroundColor: 'rgba(8,12,28,0.68)',
+    borderRadius: 20,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(194,210,255,0.14)',
+    marginBottom: 12,
   },
-  emptyText: {
-    color: 'rgba(255,255,255,0.5)',
-    textAlign: 'center',
-    marginTop: 40,
-    fontSize: 16,
+  statsMain: { color: '#EFF3FF', fontSize: 17, fontWeight: '700' },
+  statsSub: { color: 'rgba(224,231,255,0.72)', marginTop: 4, marginBottom: 10 },
+  searchBox: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  dialogContainer: {
-    backgroundColor: '#252525',
+  searchInput: { color: '#fff', flex: 1, paddingHorizontal: 8, paddingVertical: 10 },
+  filtersRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
+  filterChip: {
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
   },
-  dialogTitle: {
-    color: '#FFF',
-  },
-  dialogInput: {
-    color: '#FFF',
-    borderBottomColor: '#444',
-    borderBottomWidth: 1,
-  },
-  pomoWrapper: {
-    position: 'absolute',
-    top: 100,
-    right: 25,
-    zIndex: 10,
-  },
+  filterChipActive: { backgroundColor: 'rgba(104,117,255,0.45)' },
+  filterText: { color: 'rgba(225,232,255,0.75)', fontSize: 12, fontWeight: '600' },
+  filterTextActive: { color: '#fff' },
+  listContent: { paddingHorizontal: 16, paddingBottom: 20 },
+  emptyText: { color: 'rgba(255,255,255,0.6)', textAlign: 'center', marginTop: 30, fontSize: 16 },
+  dialogContainer: { backgroundColor: '#1A1E2C' },
+  dialogTitle: { color: '#FFF' },
+  dialogInput: { color: '#FFF', borderBottomColor: '#444', borderBottomWidth: 1 },
 });
