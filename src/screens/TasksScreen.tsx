@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, Alert, TextInput } from 'react-native';
-import { ChevronLeft, Plus, Search } from 'lucide-react-native';
+import { CheckSquare, ChevronLeft, Plus, Search } from 'lucide-react-native';
 import HabitCard from '../components/HabitCard';
 import Dialog from 'react-native-dialog';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -100,7 +100,10 @@ export default function TasksScreen({ navigation }: { navigation: any }) {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconBtn}>
           <ChevronLeft size={20} color="#FFF" />
         </TouchableOpacity>
-        <Text style={styles.title}>Daily Tasks</Text>
+        <View style={styles.titlePill}>
+          <CheckSquare size={14} color="#B8C2FF" />
+          <Text style={styles.title}>Tasks Diárias</Text>
+        </View>
         <TouchableOpacity onPress={() => setDialogVisible(true)} style={styles.iconBtn}>
           <Plus size={20} color="#FFF" />
         </TouchableOpacity>
@@ -184,21 +187,35 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: 'rgba(255,255,255,0.08)',
   },
-  title: { color: '#F5F7FF', fontSize: 18, fontWeight: '600', letterSpacing: 0.8 },
-  panel: {
-    marginHorizontal: 16,
-    backgroundColor: 'rgba(8,12,28,0.68)',
-    borderRadius: 20,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(194,210,255,0.14)',
-    marginBottom: 12,
+  titlePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.07)',
   },
-  statsMain: { color: '#EFF3FF', fontSize: 17, fontWeight: '700' },
-  statsSub: { color: 'rgba(224,231,255,0.72)', marginTop: 4, marginBottom: 10 },
+  title: { color: '#E9ECFF', fontSize: 14, letterSpacing: 1.1, textTransform: 'uppercase' },
+  panel: {
+    marginHorizontal: 22,
+    backgroundColor: 'rgba(15,23,42,0.72)',
+    borderRadius: 30,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.22)',
+    marginBottom: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 18 },
+    shadowOpacity: 0.28,
+    shadowRadius: 28,
+    elevation: 8,
+  },
+  statsMain: { color: '#F8FAFC', fontSize: 22, fontWeight: '800', letterSpacing: -0.3 },
+  statsSub: { color: 'rgba(226,232,240,0.76)', marginTop: 6, marginBottom: 14 },
   searchBox: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 14,
+    backgroundColor: 'rgba(30,41,59,0.78)',
+    borderRadius: 18,
     paddingHorizontal: 12,
     flexDirection: 'row',
     alignItems: 'center',
@@ -211,10 +228,10 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 999,
   },
-  filterChipActive: { backgroundColor: 'rgba(104,117,255,0.45)' },
+  filterChipActive: { backgroundColor: 'rgba(250,204,21,0.16)' },
   filterText: { color: 'rgba(225,232,255,0.75)', fontSize: 12, fontWeight: '600' },
-  filterTextActive: { color: '#fff' },
-  listContent: { paddingHorizontal: 16, paddingBottom: 20 },
+  filterTextActive: { color: '#FACC15' },
+  listContent: { paddingHorizontal: 22, paddingBottom: 28 },
   emptyText: { color: 'rgba(255,255,255,0.6)', textAlign: 'center', marginTop: 30, fontSize: 16 },
   dialogContainer: { backgroundColor: '#1A1E2C' },
   dialogTitle: { color: '#FFF' },
