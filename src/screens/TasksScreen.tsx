@@ -11,9 +11,13 @@ type Habit = {
   title: string;
   done: boolean;
   isFavorite: boolean;
+  createdAt: string;
+  endDate?: string;
 };
 
 type FilterType = 'all' | 'pending' | 'done' | 'favorite';
+
+const getTodayInputDate = () => new Date().toISOString().split('T')[0];
 
 const FILTERS: Array<{ key: FilterType; label: string }> = [
   { key: 'all', label: 'Todas' },
@@ -25,7 +29,9 @@ const FILTERS: Array<{ key: FilterType; label: string }> = [
 export default function TasksScreen({ navigation }: { navigation: any }) {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [dialogVisible, setDialogVisible] = useState(false);
+  const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
   const [newHabit, setNewHabit] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterType>('all');
 
@@ -33,7 +39,10 @@ export default function TasksScreen({ navigation }: { navigation: any }) {
     const loadHabits = async () => {
       try {
         const saved = await AsyncStorage.getItem('@habits');
-        if (saved) setHabits(JSON.parse(saved));
+        if (saved) {
+          const parsedHabits = JSON.parse(saved) as Habit[];
+          setHabits(parsedHabits.map(habit => ({ ...habit, createdAt: habit.createdAt || getTodayInputDate() })));
+        }
       } catch (error) {
         console.error('Erro ao carregar hábitos:', error);
       }
@@ -86,12 +95,52 @@ export default function TasksScreen({ navigation }: { navigation: any }) {
     ]);
   };
 
-  const addHabit = () => {
+  const closeDialog = () => {
+    setDialogVisible(false);
+    setEditingHabit(null);
+    setNewHabit('');
+    setEndDate('');
+  };
+
+  const openCreateDialog = () => {
+    setEditingHabit(null);
+    setNewHabit('');
+    setEndDate('');
+    setDialogVisible(true);
+  };
+
+  const openEditDialog = (habit: Habit) => {
+    setEditingHabit(habit);
+    setNewHabit(habit.title);
+    setEndDate(habit.endDate || '');
+    setDialogVisible(true);
+  };
+
+  const saveHabit = () => {
     if (!newHabit.trim()) return;
 
-    setHabits(prev => [{ id: Date.now(), title: newHabit.trim(), done: false, isFavorite: false }, ...prev]);
-    setNewHabit('');
-    setDialogVisible(false);
+    if (editingHabit) {
+      setHabits(prev =>
+        prev.map(habit =>
+          habit.id === editingHabit.id ? { ...habit, title: newHabit.trim(), endDate: endDate.trim() || undefined } : habit,
+        ),
+      );
+      closeDialog();
+      return;
+    }
+
+    setHabits(prev => [
+      {
+        id: Date.now(),
+        title: newHabit.trim(),
+        done: false,
+        isFavorite: false,
+        createdAt: getTodayInputDate(),
+        endDate: endDate.trim() || undefined,
+      },
+      ...prev,
+    ]);
+    closeDialog();
   };
 
   return (
@@ -104,7 +153,7 @@ export default function TasksScreen({ navigation }: { navigation: any }) {
           <CheckSquare size={14} color="#B8C2FF" />
           <Text style={styles.title}>Tasks Diárias</Text>
         </View>
-        <TouchableOpacity onPress={() => setDialogVisible(true)} style={styles.iconBtn}>
+        <TouchableOpacity onPress={openCreateDialog} style={styles.iconBtn}>
           <Plus size={20} color="#FFF" />
         </TouchableOpacity>
       </View>
@@ -147,6 +196,9 @@ export default function TasksScreen({ navigation }: { navigation: any }) {
             isFavorite={item.isFavorite}
             onToggle={() => toggleHabit(item.id)}
             onFavorite={() => toggleFavorite(item.id)}
+            createdAt={item.createdAt}
+            endDate={item.endDate}
+            onEdit={() => openEditDialog(item)}
             onDelete={() => deleteHabit(item.id)}
           />
         )}
@@ -155,16 +207,27 @@ export default function TasksScreen({ navigation }: { navigation: any }) {
       />
 
       <Dialog.Container visible={dialogVisible} contentStyle={styles.dialogContainer}>
-        <Dialog.Title style={styles.dialogTitle}>Nova tarefa</Dialog.Title>
+        <Dialog.Title style={styles.dialogTitle}>{editingHabit ? 'Editar tarefa' : 'Nova tarefa'}</Dialog.Title>
         <Dialog.Input
+          label="Descrição"
           placeholder="Ex: Meditar 10 minutos"
           placeholderTextColor="#999"
           onChangeText={setNewHabit}
           value={newHabit}
           style={styles.dialogInput}
         />
-        <Dialog.Button label="Cancelar" onPress={() => setDialogVisible(false)} color="#FF5252" />
-        <Dialog.Button label="Adicionar" onPress={addHabit} color="#6D79FF" />
+        <Dialog.Input
+          label="Data de término"
+          placeholder="AAAA-MM-DD"
+          placeholderTextColor="#999"
+          onChangeText={setEndDate}
+          value={endDate}
+          keyboardType="numbers-and-punctuation"
+          style={styles.dialogInput}
+        />
+        <Text style={styles.dialogHelp}>Data de cadastro: {editingHabit?.createdAt || getTodayInputDate()}</Text>
+        <Dialog.Button label="Cancelar" onPress={closeDialog} color="#FF5252" />
+        <Dialog.Button label={editingHabit ? 'Salvar' : 'Adicionar'} onPress={saveHabit} color="#6D79FF" />
       </Dialog.Container>
     </PixelBackground>
   );
@@ -236,4 +299,5 @@ const styles = StyleSheet.create({
   dialogContainer: { backgroundColor: '#1A1E2C' },
   dialogTitle: { color: '#FFF' },
   dialogInput: { color: '#FFF', borderBottomColor: '#444', borderBottomWidth: 1 },
+  dialogHelp: { color: 'rgba(255,255,255,0.62)', fontSize: 12, marginLeft: 24, marginBottom: 4 },
 });
