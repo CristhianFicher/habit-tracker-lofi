@@ -29,6 +29,10 @@ const playlist = [
   require('../assets/music/lofi3.mp3'),
 ];
 
+const setGlobalSound = (newSound: Audio.Sound) => {
+  (globalThis as typeof globalThis & { sound?: Audio.Sound }).sound = newSound;
+};
+
 export function MusicProvider({ children }: { children: React.ReactNode }) {
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -68,7 +72,7 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
-    global.sound = newSound;
+    setGlobalSound(newSound);
     setSound(newSound);
     setIsPlaying(true);
   };
@@ -99,7 +103,7 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
-    global.sound = newSound;
+    setGlobalSound(newSound);
     setSound(newSound);
     setIsPlaying(true);
   };
@@ -123,7 +127,7 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
-    global.sound = newSound;
+    setGlobalSound(newSound);
     setSound(newSound);
     setIsPlaying(true);
   };

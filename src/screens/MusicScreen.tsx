@@ -1,15 +1,12 @@
-import React, { useEffect, useState, useRef } from 'react';
-import {
-  View, Text, StyleSheet, TouchableOpacity,
-} from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useMusic } from '../contexts/MusicContext';
 import PixelBackground from '../components/PixelBackground';
-import { ChevronLeft, Play, Pause, SkipForward, SkipBack } from 'lucide-react-native';
+import { ChevronLeft, Play, Pause, SkipForward, SkipBack, Music2, Radio } from 'lucide-react-native';
 import Slider from '@react-native-community/slider';
 import Equalizer from '../components/Equalizer';
 import PomodoroBadge from '../components/PomodoroBadge';
-
 
 export default function MusicScreen() {
   const navigation = useNavigation();
@@ -70,52 +67,59 @@ export default function MusicScreen() {
   return (
     <PixelBackground>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <ChevronLeft size={28} color="white" />
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconBtn}>
+          <ChevronLeft size={22} color="#F8FAFC" />
         </TouchableOpacity>
-        <Text style={styles.headerText}>Música Lofi</Text>
+        <View style={styles.titlePill}>
+          <Music2 size={14} color="#B8C2FF" />
+          <Text style={styles.headerText}>Música Lo-fi</Text>
+        </View>
+        <View style={styles.iconBtnPlaceholder} />
       </View>
 
       <View style={styles.container}>
-        <Text style={styles.trackTitle}>{getTrackName()}</Text>
+        <View style={styles.playerCard}>
+          <View style={styles.albumArt}>
+            <View style={styles.albumGlow} />
+            <Radio size={52} color="#DDE7FF" strokeWidth={1.5} />
+            <Equalizer isPlaying={isPlaying} />
+          </View>
 
-        
-        <Slider
-          style={styles.slider}
-          minimumValue={0}
-          maximumValue={duration}
-          value={progress}
-          onValueChange={setProgress}
-          onSlidingComplete={seekTo}
-          minimumTrackTintColor="#FFD700"
-          maximumTrackTintColor="#888"
-          thumbTintColor="transparent" 
-        />
+          <Text style={styles.kicker}>Tocando agora</Text>
+          <Text style={styles.trackTitle}>{getTrackName()}</Text>
+          <Text style={styles.trackInfo}>Faixa {currentTrack + 1} de 3 · Lo-fi focus mix</Text>
 
-        <View style={styles.timeRow}>
-          <Text style={styles.time}>{formatTime(progress)}</Text>
-          <Text style={styles.time}>{formatTime(duration)}</Text>
+          <Slider
+            style={styles.slider}
+            minimumValue={0}
+            maximumValue={duration}
+            value={progress}
+            onValueChange={setProgress}
+            onSlidingComplete={seekTo}
+            minimumTrackTintColor="#FACC15"
+            maximumTrackTintColor="rgba(148,163,184,0.36)"
+            thumbTintColor="#F8FAFC"
+          />
+
+          <View style={styles.timeRow}>
+            <Text style={styles.time}>{formatTime(progress)}</Text>
+            <Text style={styles.time}>{formatTime(duration)}</Text>
+          </View>
+
+          <View style={styles.controls}>
+            <TouchableOpacity onPress={previousTrack} style={styles.secondaryControl}>
+              <SkipBack size={28} color="#F8FAFC" />
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={togglePlay} style={styles.primaryControl}>
+              {isPlaying ? <Pause size={34} color="#FFFFFF" /> : <Play size={34} color="#FFFFFF" />}
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={nextTrack} style={styles.secondaryControl}>
+              <SkipForward size={28} color="#F8FAFC" />
+            </TouchableOpacity>
+          </View>
         </View>
-
-        <View style={styles.controls}>
-          <TouchableOpacity onPress={previousTrack}>
-            <SkipBack size={40} color="white" />
-          </TouchableOpacity>
-
-          <TouchableOpacity onPress={togglePlay} style={{ marginHorizontal: 30 }}>
-            {isPlaying ? (
-              <Pause size={48} color="white" />
-            ) : (
-              <Play size={48} color="white" />
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity onPress={nextTrack}>
-            <SkipForward size={40} color="white" />
-          </TouchableOpacity>
-        </View>
-        <Text style={styles.trackInfo}>Faixa {currentTrack + 1} de 3</Text>
-        <Equalizer isPlaying={isPlaying} />
       </View>
       <PomodoroBadge />
     </PixelBackground>
@@ -124,57 +128,126 @@ export default function MusicScreen() {
 
 const styles = StyleSheet.create({
   header: {
-    position: 'absolute',
-    top: 60,
-    left: 20,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    marginTop: 24,
+    paddingHorizontal: 20,
+    justifyContent: 'space-between',
+    width: '100%',
   },
-  headerText: {
-    color: 'white',
-    fontSize: 20,
-    fontWeight: 'bold',
+  iconBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
+  iconBtnPlaceholder: { width: 38, height: 38 },
+  titlePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+  },
+  headerText: { color: '#E9ECFF', fontSize: 14, letterSpacing: 1.1, textTransform: 'uppercase' },
   container: {
     flex: 1,
     justifyContent: 'center',
+    paddingHorizontal: 22,
+    paddingBottom: 36,
+  },
+  playerCard: {
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.22)',
+    borderRadius: 30,
+    padding: 24,
     alignItems: 'center',
-    paddingHorizontal: 24,
+    backgroundColor: 'rgba(15,23,42,0.72)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 18 },
+    shadowOpacity: 0.28,
+    shadowRadius: 28,
+    elevation: 8,
+  },
+  albumArt: {
+    width: 188,
+    height: 188,
+    borderRadius: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    backgroundColor: 'rgba(59,130,246,0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(147,197,253,0.16)',
+    marginBottom: 24,
+  },
+  albumGlow: {
+    position: 'absolute',
+    width: 132,
+    height: 132,
+    borderRadius: 66,
+    backgroundColor: 'rgba(250,204,21,0.14)',
+  },
+  kicker: {
+    color: '#FACC15',
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
   trackTitle: {
-    fontSize: 18,
-    color: 'white',
-    fontWeight: 'bold',
-    marginBottom: 20,
+    fontSize: 26,
+    color: '#F8FAFC',
+    fontWeight: '800',
+    letterSpacing: -0.4,
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  trackInfo: {
+    fontSize: 13,
+    color: 'rgba(203,213,225,0.72)',
+    marginTop: 6,
+    marginBottom: 18,
   },
   slider: {
     width: '100%',
     height: 40,
-    marginBottom: 8,
   },
   timeRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     width: '100%',
     paddingHorizontal: 4,
-    marginBottom: 20,
+    marginBottom: 24,
   },
   time: {
-    color: 'white',
+    color: 'rgba(226,232,240,0.72)',
     fontSize: 12,
-    opacity: 0.7,
+    fontWeight: '600',
   },
   controls: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    gap: 18,
   },
-  
-  trackInfo: {
-    fontSize: 14,
-    color: 'white',
-    opacity: 0.7,
-    marginTop: 6,
+  primaryControl: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#626BFF',
+  },
+  secondaryControl: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.10)',
   },
 });

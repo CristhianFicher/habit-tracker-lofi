@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, Alert, TextInput } from 'react-native';
-import { ChevronLeft, Plus, Search } from 'lucide-react-native';
+import { CheckSquare, ChevronLeft, Plus, Search } from 'lucide-react-native';
 import HabitCard from '../components/HabitCard';
 import Dialog from 'react-native-dialog';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -11,9 +11,13 @@ type Habit = {
   title: string;
   done: boolean;
   isFavorite: boolean;
+  createdAt: string;
+  endDate?: string;
 };
 
 type FilterType = 'all' | 'pending' | 'done' | 'favorite';
+
+const getTodayInputDate = () => new Date().toISOString().split('T')[0];
 
 const FILTERS: Array<{ key: FilterType; label: string }> = [
   { key: 'all', label: 'Todas' },
@@ -25,7 +29,9 @@ const FILTERS: Array<{ key: FilterType; label: string }> = [
 export default function TasksScreen({ navigation }: { navigation: any }) {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [dialogVisible, setDialogVisible] = useState(false);
+  const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
   const [newHabit, setNewHabit] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterType>('all');
 
@@ -33,7 +39,10 @@ export default function TasksScreen({ navigation }: { navigation: any }) {
     const loadHabits = async () => {
       try {
         const saved = await AsyncStorage.getItem('@habits');
-        if (saved) setHabits(JSON.parse(saved));
+        if (saved) {
+          const parsedHabits = JSON.parse(saved) as Habit[];
+          setHabits(parsedHabits.map(habit => ({ ...habit, createdAt: habit.createdAt || getTodayInputDate() })));
+        }
       } catch (error) {
         console.error('Erro ao carregar hábitos:', error);
       }
@@ -86,12 +95,52 @@ export default function TasksScreen({ navigation }: { navigation: any }) {
     ]);
   };
 
-  const addHabit = () => {
+  const closeDialog = () => {
+    setDialogVisible(false);
+    setEditingHabit(null);
+    setNewHabit('');
+    setEndDate('');
+  };
+
+  const openCreateDialog = () => {
+    setEditingHabit(null);
+    setNewHabit('');
+    setEndDate('');
+    setDialogVisible(true);
+  };
+
+  const openEditDialog = (habit: Habit) => {
+    setEditingHabit(habit);
+    setNewHabit(habit.title);
+    setEndDate(habit.endDate || '');
+    setDialogVisible(true);
+  };
+
+  const saveHabit = () => {
     if (!newHabit.trim()) return;
 
-    setHabits(prev => [{ id: Date.now(), title: newHabit.trim(), done: false, isFavorite: false }, ...prev]);
-    setNewHabit('');
-    setDialogVisible(false);
+    if (editingHabit) {
+      setHabits(prev =>
+        prev.map(habit =>
+          habit.id === editingHabit.id ? { ...habit, title: newHabit.trim(), endDate: endDate.trim() || undefined } : habit,
+        ),
+      );
+      closeDialog();
+      return;
+    }
+
+    setHabits(prev => [
+      {
+        id: Date.now(),
+        title: newHabit.trim(),
+        done: false,
+        isFavorite: false,
+        createdAt: getTodayInputDate(),
+        endDate: endDate.trim() || undefined,
+      },
+      ...prev,
+    ]);
+    closeDialog();
   };
 
   return (
@@ -100,8 +149,11 @@ export default function TasksScreen({ navigation }: { navigation: any }) {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconBtn}>
           <ChevronLeft size={20} color="#FFF" />
         </TouchableOpacity>
-        <Text style={styles.title}>Daily Tasks</Text>
-        <TouchableOpacity onPress={() => setDialogVisible(true)} style={styles.iconBtn}>
+        <View style={styles.titlePill}>
+          <CheckSquare size={14} color="#B8C2FF" />
+          <Text style={styles.title}>Tasks Diárias</Text>
+        </View>
+        <TouchableOpacity onPress={openCreateDialog} style={styles.iconBtn}>
           <Plus size={20} color="#FFF" />
         </TouchableOpacity>
       </View>
@@ -144,6 +196,9 @@ export default function TasksScreen({ navigation }: { navigation: any }) {
             isFavorite={item.isFavorite}
             onToggle={() => toggleHabit(item.id)}
             onFavorite={() => toggleFavorite(item.id)}
+            createdAt={item.createdAt}
+            endDate={item.endDate}
+            onEdit={() => openEditDialog(item)}
             onDelete={() => deleteHabit(item.id)}
           />
         )}
@@ -152,16 +207,27 @@ export default function TasksScreen({ navigation }: { navigation: any }) {
       />
 
       <Dialog.Container visible={dialogVisible} contentStyle={styles.dialogContainer}>
-        <Dialog.Title style={styles.dialogTitle}>Nova tarefa</Dialog.Title>
+        <Dialog.Title style={styles.dialogTitle}>{editingHabit ? 'Editar tarefa' : 'Nova tarefa'}</Dialog.Title>
         <Dialog.Input
+          label="Descrição"
           placeholder="Ex: Meditar 10 minutos"
           placeholderTextColor="#999"
           onChangeText={setNewHabit}
           value={newHabit}
           style={styles.dialogInput}
         />
-        <Dialog.Button label="Cancelar" onPress={() => setDialogVisible(false)} color="#FF5252" />
-        <Dialog.Button label="Adicionar" onPress={addHabit} color="#6D79FF" />
+        <Dialog.Input
+          label="Data de término"
+          placeholder="AAAA-MM-DD"
+          placeholderTextColor="#999"
+          onChangeText={setEndDate}
+          value={endDate}
+          keyboardType="numbers-and-punctuation"
+          style={styles.dialogInput}
+        />
+        <Text style={styles.dialogHelp}>Data de cadastro: {editingHabit?.createdAt || getTodayInputDate()}</Text>
+        <Dialog.Button label="Cancelar" onPress={closeDialog} color="#FF5252" />
+        <Dialog.Button label={editingHabit ? 'Salvar' : 'Adicionar'} onPress={saveHabit} color="#6D79FF" />
       </Dialog.Container>
     </PixelBackground>
   );
@@ -184,21 +250,35 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: 'rgba(255,255,255,0.08)',
   },
-  title: { color: '#F5F7FF', fontSize: 18, fontWeight: '600', letterSpacing: 0.8 },
-  panel: {
-    marginHorizontal: 16,
-    backgroundColor: 'rgba(8,12,28,0.68)',
-    borderRadius: 20,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(194,210,255,0.14)',
-    marginBottom: 12,
+  titlePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.07)',
   },
-  statsMain: { color: '#EFF3FF', fontSize: 17, fontWeight: '700' },
-  statsSub: { color: 'rgba(224,231,255,0.72)', marginTop: 4, marginBottom: 10 },
+  title: { color: '#E9ECFF', fontSize: 14, letterSpacing: 1.1, textTransform: 'uppercase' },
+  panel: {
+    marginHorizontal: 22,
+    backgroundColor: 'rgba(15,23,42,0.72)',
+    borderRadius: 30,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.22)',
+    marginBottom: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 18 },
+    shadowOpacity: 0.28,
+    shadowRadius: 28,
+    elevation: 8,
+  },
+  statsMain: { color: '#F8FAFC', fontSize: 22, fontWeight: '800', letterSpacing: -0.3 },
+  statsSub: { color: 'rgba(226,232,240,0.76)', marginTop: 6, marginBottom: 14 },
   searchBox: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 14,
+    backgroundColor: 'rgba(30,41,59,0.78)',
+    borderRadius: 18,
     paddingHorizontal: 12,
     flexDirection: 'row',
     alignItems: 'center',
@@ -211,12 +291,13 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 999,
   },
-  filterChipActive: { backgroundColor: 'rgba(104,117,255,0.45)' },
+  filterChipActive: { backgroundColor: 'rgba(250,204,21,0.16)' },
   filterText: { color: 'rgba(225,232,255,0.75)', fontSize: 12, fontWeight: '600' },
-  filterTextActive: { color: '#fff' },
-  listContent: { paddingHorizontal: 16, paddingBottom: 20 },
+  filterTextActive: { color: '#FACC15' },
+  listContent: { paddingHorizontal: 22, paddingBottom: 28 },
   emptyText: { color: 'rgba(255,255,255,0.6)', textAlign: 'center', marginTop: 30, fontSize: 16 },
   dialogContainer: { backgroundColor: '#1A1E2C' },
   dialogTitle: { color: '#FFF' },
   dialogInput: { color: '#FFF', borderBottomColor: '#444', borderBottomWidth: 1 },
+  dialogHelp: { color: 'rgba(255,255,255,0.62)', fontSize: 12, marginLeft: 24, marginBottom: 4 },
 });
