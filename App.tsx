@@ -4,17 +4,20 @@ import AppNavigator from './src/navigation/AppNavigator';
 import { HabitProvider } from './src/contexts/HabitContext';
 import { PomodoroProvider } from './src/contexts/PomodoroContext';
 import { MusicProvider } from './src/contexts/MusicContext';
+import { DiaryProvider } from './src/contexts/DiaryContext';
 
 export default function App() {
   return (
     <HabitProvider>
-      <PomodoroProvider>
-        <MusicProvider>
-          <NavigationContainer>
-            <AppNavigator />
-          </NavigationContainer>
-        </MusicProvider>
-      </PomodoroProvider>
+      <DiaryProvider>
+        <PomodoroProvider>
+          <MusicProvider>
+            <NavigationContainer>
+              <AppNavigator />
+            </NavigationContainer>
+          </MusicProvider>
+        </PomodoroProvider>
+      </DiaryProvider>
     </HabitProvider>
   );
 }

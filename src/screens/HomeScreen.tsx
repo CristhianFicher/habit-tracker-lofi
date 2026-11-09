@@ -53,8 +53,10 @@ const menuItems: MenuItem[] = [
 ];
 
 export default function HomeScreen({ navigation }: Props) {
-  const { habits, favoriteId } = useHabitContext();
-  const favoriteHabit = habits.find(habit => habit.id === favoriteId);
+  // habits e favoriteHabit agora vêm do mesmo HabitContext que o TasksScreen
+  // usa para ler/gravar — antes eram dois estados separados e a Home nunca
+  // via o que era criado na tela de tasks.
+  const { habits, favoriteHabit } = useHabitContext();
   const { secondsLeft, isRunning } = usePomodoro();
 
   const formatTime = (sec: number) => {

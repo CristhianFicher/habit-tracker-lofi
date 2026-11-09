@@ -1,19 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, Alert, TextInput } from 'react-native';
 import { CheckSquare, ChevronLeft, Plus, Search } from 'lucide-react-native';
 import HabitCard from '../components/HabitCard';
 import Dialog from 'react-native-dialog';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import PixelBackground from '../components/PixelBackground';
-
-type Habit = {
-  id: number;
-  title: string;
-  done: boolean;
-  isFavorite: boolean;
-  createdAt: string;
-  endDate?: string;
-};
+import { useHabitContext, Habit } from '../contexts/HabitContext';
 
 type FilterType = 'all' | 'pending' | 'done' | 'favorite';
 
@@ -27,39 +18,13 @@ const FILTERS: Array<{ key: FilterType; label: string }> = [
 ];
 
 export default function TasksScreen({ navigation }: { navigation: any }) {
-  const [habits, setHabits] = useState<Habit[]>([]);
+  const { habits, addHabit, updateHabitTitle, toggleHabit, toggleFavorite, deleteHabit } = useHabitContext();
+
   const [dialogVisible, setDialogVisible] = useState(false);
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
   const [newHabit, setNewHabit] = useState('');
-  const [endDate, setEndDate] = useState('');
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterType>('all');
-
-  useEffect(() => {
-    const loadHabits = async () => {
-      try {
-        const saved = await AsyncStorage.getItem('@habits');
-        if (saved) {
-          const parsedHabits = JSON.parse(saved) as Habit[];
-          setHabits(parsedHabits.map(habit => ({ ...habit, createdAt: habit.createdAt || getTodayInputDate() })));
-        }
-      } catch (error) {
-        console.error('Erro ao carregar hábitos:', error);
-      }
-    };
-    loadHabits();
-  }, []);
-
-  useEffect(() => {
-    const saveHabits = async () => {
-      try {
-        await AsyncStorage.setItem('@habits', JSON.stringify(habits));
-      } catch (error) {
-        console.error('Erro ao salvar hábitos:', error);
-      }
-    };
-    saveHabits();
-  }, [habits]);
 
   const filteredHabits = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
@@ -76,22 +41,10 @@ export default function TasksScreen({ navigation }: { navigation: any }) {
 
   const completedCount = habits.filter(h => h.done).length;
 
-  const toggleHabit = (id: number) => {
-    setHabits(prev => prev.map(h => (h.id === id ? { ...h, done: !h.done } : h)));
-  };
-
-  const toggleFavorite = (id: number) => {
-    setHabits(prev => prev.map(h => (h.id === id ? { ...h, isFavorite: !h.isFavorite } : h)));
-  };
-
-  const deleteHabit = (id: number) => {
+  const confirmDelete = (id: number) => {
     Alert.alert('Excluir tarefa', 'Tem certeza?', [
       { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Excluir',
-        style: 'destructive',
-        onPress: () => setHabits(prev => prev.filter(h => h.id !== id)),
-      },
+      { text: 'Excluir', style: 'destructive', onPress: () => deleteHabit(id) },
     ]);
   };
 
@@ -99,20 +52,17 @@ export default function TasksScreen({ navigation }: { navigation: any }) {
     setDialogVisible(false);
     setEditingHabit(null);
     setNewHabit('');
-    setEndDate('');
   };
 
   const openCreateDialog = () => {
     setEditingHabit(null);
     setNewHabit('');
-    setEndDate('');
     setDialogVisible(true);
   };
 
   const openEditDialog = (habit: Habit) => {
     setEditingHabit(habit);
     setNewHabit(habit.title);
-    setEndDate(habit.endDate || '');
     setDialogVisible(true);
   };
 
@@ -120,26 +70,10 @@ export default function TasksScreen({ navigation }: { navigation: any }) {
     if (!newHabit.trim()) return;
 
     if (editingHabit) {
-      setHabits(prev =>
-        prev.map(habit =>
-          habit.id === editingHabit.id ? { ...habit, title: newHabit.trim(), endDate: endDate.trim() || undefined } : habit,
-        ),
-      );
-      closeDialog();
-      return;
+      updateHabitTitle(editingHabit.id, newHabit);
+    } else {
+      addHabit(newHabit);
     }
-
-    setHabits(prev => [
-      {
-        id: Date.now(),
-        title: newHabit.trim(),
-        done: false,
-        isFavorite: false,
-        createdAt: getTodayInputDate(),
-        endDate: endDate.trim() || undefined,
-      },
-      ...prev,
-    ]);
     closeDialog();
   };
 
@@ -199,7 +133,7 @@ export default function TasksScreen({ navigation }: { navigation: any }) {
             createdAt={item.createdAt}
             endDate={item.endDate}
             onEdit={() => openEditDialog(item)}
-            onDelete={() => deleteHabit(item.id)}
+            onDelete={() => confirmDelete(item.id)}
           />
         )}
         contentContainerStyle={styles.listContent}
@@ -216,16 +150,10 @@ export default function TasksScreen({ navigation }: { navigation: any }) {
           value={newHabit}
           style={styles.dialogInput}
         />
-        <Dialog.Input
-          label="Data de término"
-          placeholder="AAAA-MM-DD"
-          placeholderTextColor="#999"
-          onChangeText={setEndDate}
-          value={endDate}
-          keyboardType="numbers-and-punctuation"
-          style={styles.dialogInput}
-        />
         <Text style={styles.dialogHelp}>Data de cadastro: {editingHabit?.createdAt || getTodayInputDate()}</Text>
+        {editingHabit?.endDate ? (
+          <Text style={styles.dialogHelp}>Concluída em: {editingHabit.endDate}</Text>
+        ) : null}
         <Dialog.Button label="Cancelar" onPress={closeDialog} color="#FF5252" />
         <Dialog.Button label={editingHabit ? 'Salvar' : 'Adicionar'} onPress={saveHabit} color="#6D79FF" />
       </Dialog.Container>

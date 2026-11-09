@@ -7,13 +7,15 @@ import { useNavigation } from '@react-navigation/native';
 import PomodoroBadge from '../components/PomodoroBadge';
 import { ChevronLeft, Settings, TimerReset } from 'lucide-react-native';
 
+const DEFAULTS = { focus: '25', short: '5', long: '15' };
+
 export default function SettingsScreen() {
-  const { setCustomTimes } = usePomodoro();
+  const { setCustomTimes, isRunning } = usePomodoro();
   const navigation = useNavigation();
 
-  const [focus, setFocus] = useState('25');
-  const [short, setShort] = useState('5');
-  const [long, setLong] = useState('15');
+  const [focus, setFocus] = useState(DEFAULTS.focus);
+  const [short, setShort] = useState(DEFAULTS.short);
+  const [long, setLong] = useState(DEFAULTS.long);
 
   useEffect(() => {
     const load = async () => {
@@ -27,19 +29,48 @@ export default function SettingsScreen() {
     load();
   }, []);
 
-  const handleSave = async () => {
-    const f = parseInt(focus) * 60;
-    const s = parseInt(short) * 60;
-    const l = parseInt(long) * 60;
+  const parsedFocus = parseInt(focus, 10);
+  const parsedShort = parseInt(short, 10);
+  const parsedLong = parseInt(long, 10);
 
-    if (isNaN(f) || isNaN(s) || isNaN(l)) {
-      Alert.alert('Erro', 'Digite apenas números válidos.');
+  // Antes só checava isNaN — "0" ou "-5" passavam e travavam o timer.
+  const isValid =
+    Number.isInteger(parsedFocus) &&
+    parsedFocus > 0 &&
+    Number.isInteger(parsedShort) &&
+    parsedShort > 0 &&
+    Number.isInteger(parsedLong) &&
+    parsedLong > 0;
+
+  const applyTimes = async () => {
+    await setCustomTimes(parsedFocus * 60, parsedShort * 60, parsedLong * 60);
+    Alert.alert('Sucesso', 'Tempos atualizados!');
+    navigation.goBack();
+  };
+
+  const handleSave = () => {
+    if (!isValid) {
+      Alert.alert('Erro', 'Digite apenas números inteiros maiores que zero.');
       return;
     }
 
-    await setCustomTimes(f, s, l);
-    Alert.alert('Sucesso', 'Tempos atualizados!');
-    navigation.goBack();
+    // setCustomTimes reinicia o ciclo do zero — se tem um pomodoro rodando,
+    // o usuário merece saber antes de perder o progresso da sessão atual.
+    if (isRunning) {
+      Alert.alert('Pomodoro em andamento', 'Salvar agora vai reiniciar o ciclo atual do zero. Deseja continuar?', [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Salvar mesmo assim', style: 'destructive', onPress: applyTimes },
+      ]);
+      return;
+    }
+
+    applyTimes();
+  };
+
+  const handleReset = () => {
+    setFocus(DEFAULTS.focus);
+    setShort(DEFAULTS.short);
+    setLong(DEFAULTS.long);
   };
 
   return (
@@ -64,6 +95,12 @@ export default function SettingsScreen() {
           <Text style={styles.title}>Ajuste seus ciclos de foco</Text>
           <Text style={styles.subtitle}>Defina os tempos em minutos para deixar a rotina no seu ritmo.</Text>
 
+          {isRunning && (
+            <View style={styles.warningBanner}>
+              <Text style={styles.warningText}>Há um ciclo em andamento. Salvar vai reiniciá-lo.</Text>
+            </View>
+          )}
+
           <View style={styles.formGroup}>
             <Text style={styles.label}>Tempo de foco</Text>
             <TextInput style={styles.input} value={focus} onChangeText={setFocus} keyboardType="numeric" />
@@ -82,8 +119,17 @@ export default function SettingsScreen() {
             <Text style={styles.helper}>Descanso maior após uma sequência completa.</Text>
           </View>
 
-          <TouchableOpacity style={styles.button} onPress={handleSave} activeOpacity={0.84}>
+          <TouchableOpacity
+            style={[styles.button, !isValid && styles.buttonDisabled]}
+            onPress={handleSave}
+            activeOpacity={0.84}
+            disabled={!isValid}
+          >
             <Text style={styles.buttonText}>Salvar configurações</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.secondaryButton} onPress={handleReset} activeOpacity={0.7}>
+            <Text style={styles.secondaryButtonText}>Restaurar padrão (25 / 5 / 15)</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -172,6 +218,20 @@ const styles = StyleSheet.create({
     marginTop: 10,
     marginBottom: 22,
   },
+  warningBanner: {
+    backgroundColor: 'rgba(250,204,21,0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(250,204,21,0.30)',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 18,
+  },
+  warningText: {
+    color: '#FACC15',
+    fontSize: 12,
+    fontWeight: '700',
+  },
   formGroup: { marginBottom: 16 },
   label: {
     color: '#F8FAFC',
@@ -201,9 +261,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 8,
   },
+  buttonDisabled: {
+    opacity: 0.45,
+  },
   buttonText: {
     color: '#111827',
     fontWeight: '800',
     letterSpacing: 0.2,
+  },
+  secondaryButton: {
+    alignItems: 'center',
+    paddingVertical: 12,
+    marginTop: 6,
+  },
+  secondaryButtonText: {
+    color: 'rgba(226,232,240,0.72)',
+    fontSize: 13,
+    fontWeight: '700',
   },
 });

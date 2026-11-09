@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Audio, InterruptionModeAndroid, InterruptionModeIOS } from 'expo-av';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { Audio, AVPlaybackStatus, InterruptionModeAndroid, InterruptionModeIOS } from 'expo-av';
 
 interface MusicContextType {
   isPlaying: boolean;
@@ -29,14 +29,26 @@ const playlist = [
   require('../assets/music/lofi3.mp3'),
 ];
 
-const setGlobalSound = (newSound: Audio.Sound) => {
-  (globalThis as typeof globalThis & { sound?: Audio.Sound }).sound = newSound;
+const setGlobalSound = (newSound: Audio.Sound | null) => {
+  (globalThis as typeof globalThis & { sound?: Audio.Sound | null }).sound = newSound;
 };
 
 export function MusicProvider({ children }: { children: React.ReactNode }) {
-  const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTrack, setCurrentTrack] = useState(0);
+
+  // O bug do pause vinha daqui: o áudio era controlado via `useState(sound)`,
+  // mas várias funções (pause, nextTrack, o cleanup do useEffect) liam esse
+  // valor a partir de closures antigas que ainda apontavam para `null` ou
+  // para uma faixa já trocada — então `pauseAsync()` às vezes era chamado
+  // num objeto de som que não era mais o que estava tocando de fato.
+  // Um ref sempre aponta pro som atual, não importa qual closure o lê.
+  const soundRef = useRef<Audio.Sound | null>(null);
+  const currentTrackRef = useRef(0);
+
+  useEffect(() => {
+    currentTrackRef.current = currentTrack;
+  }, [currentTrack]);
 
   useEffect(() => {
     Audio.setAudioModeAsync({
@@ -48,88 +60,63 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
     });
 
     return () => {
-      if (sound) {
-        sound.unloadAsync();
-      }
+      soundRef.current?.unloadAsync();
     };
   }, []);
 
-  const loadAndPlay = async () => {
-    if (sound) {
-      await sound.playAsync();
-      setIsPlaying(true);
-      return;
-    }
-
-    const { sound: newSound } = await Audio.Sound.createAsync(
-      playlist[currentTrack],
-      { shouldPlay: true, isLooping: false }
-    );
-
-    newSound.setOnPlaybackStatusUpdate((status) => {
-      if (status.isLoaded && status.didJustFinish) {
+  // isPlaying passa a refletir o status real do áudio (status.isPlaying),
+  // em vez de um boolean setado manualmente em cada função — assim a UI
+  // nunca fica "fora de sincronia" com o que está de fato tocando.
+  const attachStatusListener = (soundInstance: Audio.Sound) => {
+    soundInstance.setOnPlaybackStatusUpdate((status: AVPlaybackStatus) => {
+      if (!status.isLoaded) return;
+      setIsPlaying(status.isPlaying);
+      if (status.didJustFinish) {
         nextTrack();
       }
     });
+  };
 
+  const playTrackAt = async (index: number) => {
+    if (soundRef.current) {
+      soundRef.current.setOnPlaybackStatusUpdate(null);
+      await soundRef.current.unloadAsync();
+      soundRef.current = null;
+    }
+
+    const { sound: newSound } = await Audio.Sound.createAsync(playlist[index], {
+      shouldPlay: true,
+      isLooping: false,
+    });
+
+    attachStatusListener(newSound);
+    soundRef.current = newSound;
     setGlobalSound(newSound);
-    setSound(newSound);
-    setIsPlaying(true);
+    setCurrentTrack(index);
+  };
+
+  const loadAndPlay = async () => {
+    if (soundRef.current) {
+      await soundRef.current.playAsync();
+      return;
+    }
+    await playTrackAt(currentTrackRef.current);
   };
 
   const pause = async () => {
-    if (sound) {
-      await sound.pauseAsync();
-      setIsPlaying(false);
+    if (soundRef.current) {
+      await soundRef.current.pauseAsync();
     }
   };
 
   const nextTrack = async () => {
-    if (sound) {
-      await sound.unloadAsync();
-    }
-
-    const nextIndex = (currentTrack + 1) % playlist.length;
-    setCurrentTrack(nextIndex);
-
-    const { sound: newSound } = await Audio.Sound.createAsync(
-      playlist[nextIndex],
-      { shouldPlay: true, isLooping: false }
-    );
-
-    newSound.setOnPlaybackStatusUpdate((status) => {
-      if (status.isLoaded && status.didJustFinish) {
-        nextTrack();
-      }
-    });
-
-    setGlobalSound(newSound);
-    setSound(newSound);
-    setIsPlaying(true);
+    const nextIndex = (currentTrackRef.current + 1) % playlist.length;
+    await playTrackAt(nextIndex);
   };
 
   const previousTrack = async () => {
-    if (sound) {
-      await sound.unloadAsync();
-    }
-
-    const prevIndex = (currentTrack - 1 + playlist.length) % playlist.length;
-    setCurrentTrack(prevIndex);
-
-    const { sound: newSound } = await Audio.Sound.createAsync(
-      playlist[prevIndex],
-      { shouldPlay: true, isLooping: false }
-    );
-
-    newSound.setOnPlaybackStatusUpdate((status) => {
-      if (status.isLoaded && status.didJustFinish) {
-        nextTrack();
-      }
-    });
-
-    setGlobalSound(newSound);
-    setSound(newSound);
-    setIsPlaying(true);
+    const prevIndex = (currentTrackRef.current - 1 + playlist.length) % playlist.length;
+    await playTrackAt(prevIndex);
   };
 
   return (
